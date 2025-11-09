@@ -732,7 +732,7 @@ public class TwoGtp
             GoPoint point = null;
             try
             {
-                point = GtpUtil.parsePoint(responseGenmove, board.getParameters().size()); // TODO : Need rework
+                point = GtpUtil.parsePoint(responseGenmove, board.getParameters().size());
             }
             catch (GtpResponseFormatError e)
             {
@@ -743,8 +743,53 @@ public class TwoGtp
             Move move = Move.get(color, point);
             m_game.play(move);
             program.updateAfterGenmove(board);
-            synchronize();
-            response.append(GoPoint.toString(move.getPoint()));
+
+            boolean shouldEndGame = false;
+            // If move is PASS
+            if (point == null)
+            {
+                // Check if PASS is a legal move
+                for (Program p : m_allPrograms)
+                {
+                    if (p != program)
+                    {
+                        String legalMoves = p.send("all_legal");
+                        if (!legalMoves.toUpperCase().contains("PASS"))
+                        {
+                            if (m_verbose)
+                            {
+                                System.err.println("Info: " + p.getLabel() +
+                                    " does not have PASS as legal move - ending game");
+                            }
+                            shouldEndGame = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Send play command with original move string
+            if (!shouldEndGame)
+            {
+                String playCmd = "play " + (color == BLACK ? "b" : "w") + " " + responseGenmove;
+                for (Program p : m_allPrograms)
+                {
+                    if (p != program)
+                    {
+                        p.send(playCmd);
+                    }
+                }
+            }
+            else // Game should end - add PASS for other player to make bothPassed() true
+            {
+                if (m_verbose)
+                {
+                    System.err.println("Info: Ending game immediately after PASS");
+                }
+                Move passMove = Move.get(color.otherColor(), null);
+                m_game.play(passMove);
+            }
+            response.append(responseGenmove);
             if (m_debugToComment)
             {
                 // All stderr that was written by the program before the

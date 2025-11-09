@@ -140,6 +140,48 @@ public final class GoPoint
         if (string.length() < 2)
             throw new InvalidPointException(string);
 
+        GoPoint destination = tryParseFromToFormat(string, boardSize);
+        if (destination != null)
+            return destination;
+
+        // Standard single-point parsing
+        return parseSinglePoint(string, boardSize);
+    }
+
+    // Try to detect from-to format (e.g., "A5A7", or "A10AB10")
+    // Split by trying different positions and parse the last valid coordinate
+    // Return the destination point if valid, null otherwise.
+    private static GoPoint tryParseFromToFormat(String string, int boardSize)
+    {
+        int length = string.length();
+        // Try different split positions
+        for (int splitPos = 2; splitPos <= length - 2; ++splitPos)
+        {
+            String fromPart = string.substring(0, splitPos);
+            String toPart = string.substring(splitPos);
+            try
+            {
+                // Parse both parts
+                GoPoint fromPoint = parseSinglePoint(fromPart, boardSize);
+                GoPoint toPoint = parseSinglePoint(toPart, boardSize);
+                // If both valid, return destination point
+                return toPoint;
+            }
+            catch (InvalidPointException e)
+            {
+                // Ignore and try next split position
+                continue;
+            }
+        }
+        // No valid from-to format found
+        return null;
+        
+    }
+
+    /** Parse a single point coordinate without from-to detection. */
+    private static GoPoint parseSinglePoint(String string, int boardSize)
+        throws InvalidPointException
+    {
         char xChar = string.charAt(0);
         if (xChar >= 'J')
             --xChar;
